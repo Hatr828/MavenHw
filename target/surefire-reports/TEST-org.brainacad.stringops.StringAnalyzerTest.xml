@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="org.brainacad.AppTest" time="0.027" tests="1" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="org.brainacad.stringops.StringAnalyzerTest" time="0.003" tests="6" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -54,5 +54,10 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="shouldAnswerWithTrue" classname="org.brainacad.AppTest" time="0.003"/>
+  <testcase name="countsConsonants" classname="org.brainacad.stringops.StringAnalyzerTest" time="0"/>
+  <testcase name="countsWordOccurrencesCaseInsensitive" classname="org.brainacad.stringops.StringAnalyzerTest" time="0.001"/>
+  <testcase name="detectsPalindromeIgnoringCaseAndPunctuation" classname="org.brainacad.stringops.StringAnalyzerTest" time="0"/>
+  <testcase name="throwsOnNullPalindromeInput" classname="org.brainacad.stringops.StringAnalyzerTest" time="0"/>
+  <testcase name="countsVowels" classname="org.brainacad.stringops.StringAnalyzerTest" time="0"/>
+  <testcase name="countsWordOccurrencesWithHyphenBoundaries" classname="org.brainacad.stringops.StringAnalyzerTest" time="0.001"/>
 </testsuite>

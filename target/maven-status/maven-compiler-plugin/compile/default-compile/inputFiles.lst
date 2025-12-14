@@ -1,8 +1,10 @@
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/Newspaper.java
+/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/App.java
+/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/currency/Currency.java
+/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/currency/CurrencyConverter.java
 /home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/Almanac.java
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/TestMaven.java
+/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/Book.java
+/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/CatalogItem.java
 /home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/ItemType.java
 /home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/LibraryCatalog.java
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/App.java
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/CatalogItem.java
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/Book.java
+/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/library/Newspaper.java
+/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/stringops/StringAnalyzer.java
