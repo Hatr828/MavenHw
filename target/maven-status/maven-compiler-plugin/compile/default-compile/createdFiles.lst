@@ -1,0 +1,12 @@
+org/brainacad/library/Book$BookBuilder.class
+org/brainacad/library/Newspaper.class
+org/brainacad/library/Almanac$AlmanacBuilder.class
+org/brainacad/library/Newspaper$NewspaperBuilder.class
+org/brainacad/library/ItemType.class
+org/brainacad/library/LibraryCatalog.class
+org/brainacad/library/LibraryCatalog$1.class
+org/brainacad/TestMaven.class
+org/brainacad/library/CatalogItem.class
+org/brainacad/library/Almanac.class
+org/brainacad/App.class
+org/brainacad/library/Book.class
