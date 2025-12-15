@@ -1,42 +1,35 @@
 package org.brainacad;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import org.brainacad.currency.Currency;
-import org.brainacad.currency.CurrencyConverter;
+import java.sql.Connection;
+import org.brainacad.db.CoffeeShopRepository;
+import org.brainacad.db.Database;
+import org.brainacad.service.Task2InsertService;
+import org.brainacad.service.Task3UpdateService;
+import org.brainacad.service.Task4DeleteService;
+import org.brainacad.service.Task5QueryService;
 
 public class App {
+
     public static void main(String[] args) {
-        CurrencyConverter converter = new CurrencyConverter();
+        Database db = Database.fromEnv();
+        System.out.printf("Connecting to %s...%n", db.jdbcUrl());
+        try (Connection connection = db.openConnection()) {
+            connection.setAutoCommit(false);
+            CoffeeShopRepository repo = new CoffeeShopRepository(connection);
 
-        if (args.length != 3) {
-            printUsage(converter);
-            return;
+            Task2InsertService task2 = new Task2InsertService(repo);
+            Task3UpdateService task3 = new Task3UpdateService(repo);
+            Task4DeleteService task4 = new Task4DeleteService(repo);
+            Task5QueryService task5 = new Task5QueryService(repo);
+
+            task2.run();
+            task3.run();
+            task4.run();
+            task5.run();
+            connection.commit();
+            System.out.println("Done.");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        try {
-            BigDecimal amount = new BigDecimal(args[0]);
-            Currency from = Currency.valueOf(args[1].toUpperCase());
-            Currency to = Currency.valueOf(args[2].toUpperCase());
-
-            BigDecimal result = converter.convert(amount, from, to);
-            System.out.printf(
-                    "%s %s = %s %s%n",
-                    amount.setScale(4, RoundingMode.HALF_UP).toPlainString(),
-                    from,
-                    result.toPlainString(),
-                    to);
-        } catch (IllegalArgumentException ex) {
-            System.err.println("Invalid input: " + ex.getMessage());
-        }
-    }
-
-    private static void printUsage(CurrencyConverter converter) {
-        System.out.println("Usage: <amount> <fromCurrency> <toCurrency>");
-        System.out.println("Available currencies: USD, EUR, GBP, JPY");
-        System.out.println("Example: 100 usd eur");
-
-        BigDecimal demoResult = converter.convert(BigDecimal.valueOf(100), Currency.USD, Currency.EUR);
-        System.out.printf("Demo: 100 USD -> %s EUR%n", demoResult.toPlainString());
     }
 }
