@@ -6,10 +6,17 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import org.brainacad.model.MenuItemInfo;
 import org.brainacad.model.OrderInfo;
+import org.brainacad.model.CustomerInfo;
 import org.brainacad.model.StaffInfo;
+import org.brainacad.model.StaffHireInfo;
+import org.brainacad.model.DrinkOrderCustomerInfo;
+import org.brainacad.model.CustomerOrderTotalInfo;
+import org.brainacad.model.WorkScheduleInfo;
 
 public class CoffeeShopRepository {
     private final Connection conn;
@@ -185,6 +192,68 @@ public class CoffeeShopRepository {
         throw new IllegalStateException("Price missing for item id " + menuItemId);
     }
 
+    public BigDecimal findMinDiscount() throws SQLException {
+        return querySingleDecimal("SELECT MIN(discount_percent) AS val FROM customers");
+    }
+
+    public BigDecimal findMaxDiscount() throws SQLException {
+        return querySingleDecimal("SELECT MAX(discount_percent) AS val FROM customers");
+    }
+
+    public BigDecimal findAvgDiscount() throws SQLException {
+        return querySingleDecimal("SELECT ROUND(AVG(discount_percent), 2) AS val FROM customers");
+    }
+
+    public List<CustomerInfo> findCustomersWithDiscount(BigDecimal discount) throws SQLException {
+        String sql = "SELECT full_name, phone, birth_date, address, discount_percent FROM customers WHERE discount_percent = ? ORDER BY full_name";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, discount);
+            try (ResultSet rs = ps.executeQuery()) {
+                return readCustomers(rs);
+            }
+        }
+    }
+
+    public List<CustomerInfo> findYoungestCustomers() throws SQLException {
+        String sql = "SELECT full_name, phone, birth_date, address, discount_percent FROM customers " +
+                "WHERE birth_date = (SELECT MAX(birth_date) FROM customers) ORDER BY full_name";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return readCustomers(rs);
+        }
+    }
+
+    public List<CustomerInfo> findOldestCustomers() throws SQLException {
+        String sql = "SELECT full_name, phone, birth_date, address, discount_percent FROM customers " +
+                "WHERE birth_date = (SELECT MIN(birth_date) FROM customers) ORDER BY full_name";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return readCustomers(rs);
+        }
+    }
+
+    public List<CustomerInfo> findBirthdayCustomers(LocalDate date) throws SQLException {
+        String sql = "SELECT full_name, phone, birth_date, address, discount_percent FROM customers " +
+                "WHERE EXTRACT(MONTH FROM birth_date) = ? AND EXTRACT(DAY FROM birth_date) = ? " +
+                "ORDER BY full_name";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, date.getMonthValue());
+            ps.setInt(2, date.getDayOfMonth());
+            try (ResultSet rs = ps.executeQuery()) {
+                return readCustomers(rs);
+            }
+        }
+    }
+
+    public List<CustomerInfo> findCustomersWithoutAddress() throws SQLException {
+        String sql = "SELECT full_name, phone, birth_date, address, discount_percent FROM customers " +
+                "WHERE address IS NULL OR TRIM(address) = '' ORDER BY full_name";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return readCustomers(rs);
+        }
+    }
+
     public int clearOrdersStaffByPhone(String phone) throws SQLException {
         String sql = "UPDATE orders SET staff_id = NULL WHERE staff_id = (SELECT id FROM staff WHERE phone = ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -252,13 +321,14 @@ public class CoffeeShopRepository {
     }
 
     public List<MenuItemInfo> findMenuItemsByCategory(String category) throws SQLException {
-        String sql = "SELECT name_en, name_uk, price FROM menu_items WHERE category = ?::menu_category ORDER BY name_en";
+        String sql = "SELECT category, name_en, name_uk, price FROM menu_items WHERE category = ?::menu_category ORDER BY name_en";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, category);
             try (ResultSet rs = ps.executeQuery()) {
                 List<MenuItemInfo> list = new java.util.ArrayList<>();
                 while (rs.next()) {
                     list.add(new MenuItemInfo(
+                            rs.getString("category"),
                             rs.getString("name_en"),
                             rs.getString("name_uk"),
                             rs.getBigDecimal("price")
@@ -336,6 +406,354 @@ public class CoffeeShopRepository {
         }
     }
 
+    public List<OrderInfo> findOrdersOnDate(LocalDate date) throws SQLException {
+        String sql = "SELECT o.id, o.status, o.created_at, c.phone AS customer_phone, s.phone AS staff_phone, o.comments " +
+                "FROM orders o " +
+                "LEFT JOIN customers c ON c.id = o.customer_id " +
+                "LEFT JOIN staff s ON s.id = o.staff_id " +
+                "WHERE DATE(o.created_at) = ? " +
+                "ORDER BY o.id";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                return readOrderInfo(rs);
+            }
+        }
+    }
+
+    public List<OrderInfo> findOrdersInRange(LocalDateTime from, LocalDateTime to) throws SQLException {
+        String sql = "SELECT o.id, o.status, o.created_at, c.phone AS customer_phone, s.phone AS staff_phone, o.comments " +
+                "FROM orders o " +
+                "LEFT JOIN customers c ON c.id = o.customer_id " +
+                "LEFT JOIN staff s ON s.id = o.staff_id " +
+                "WHERE o.created_at >= ? AND o.created_at <= ? " +
+                "ORDER BY o.id";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, from);
+            ps.setObject(2, to);
+            try (ResultSet rs = ps.executeQuery()) {
+                return readOrderInfo(rs);
+            }
+        }
+    }
+
+    public List<DrinkOrderCustomerInfo> findDrinkOrdersWithBaristaOnDate(LocalDate date) throws SQLException {
+        String sql = "SELECT DISTINCT o.id, o.created_at, c.full_name AS customer_name, c.phone AS customer_phone, " +
+                "s.full_name AS barista_name, s.phone AS barista_phone " +
+                "FROM orders o " +
+                "JOIN order_items oi ON oi.order_id = o.id " +
+                "JOIN menu_items mi ON mi.id = oi.menu_item_id AND mi.category = 'DRINK' " +
+                "LEFT JOIN customers c ON c.id = o.customer_id " +
+                "LEFT JOIN staff s ON s.id = o.staff_id " +
+                "LEFT JOIN staff_roles sr ON sr.id = s.role_id " +
+                "WHERE DATE(o.created_at) = ? AND sr.code = 'BARISTA' " +
+                "ORDER BY o.created_at, o.id";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<DrinkOrderCustomerInfo> list = new java.util.ArrayList<>();
+                while (rs.next()) {
+                    list.add(new DrinkOrderCustomerInfo(
+                            rs.getLong("id"),
+                            rs.getString("created_at"),
+                            rs.getString("customer_name"),
+                            rs.getString("customer_phone"),
+                            rs.getString("barista_name"),
+                            rs.getString("barista_phone")
+                    ));
+                }
+                return list;
+            }
+        }
+    }
+
+    public BigDecimal findAverageOrderTotalOnDate(LocalDate date) throws SQLException {
+        String sql = "SELECT ROUND(AVG(total_after_discount), 2) AS val FROM order_totals WHERE DATE(created_at) = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getBigDecimal("val");
+                }
+            }
+        }
+        return null;
+    }
+
+    public BigDecimal findMaxOrderTotalOnDate(LocalDate date) throws SQLException {
+        String sql = "SELECT MAX(total_after_discount) AS val FROM order_totals WHERE DATE(created_at) = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getBigDecimal("val");
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<CustomerOrderTotalInfo> findCustomersWithMaxOrderOnDate(LocalDate date) throws SQLException {
+        String sql = "WITH day_orders AS (" +
+                "   SELECT order_id, customer_id, total_after_discount FROM order_totals WHERE DATE(created_at) = ?" +
+                "), max_total AS (" +
+                "   SELECT MAX(total_after_discount) AS max_val FROM day_orders" +
+                ") " +
+                "SELECT d.order_id, c.full_name, c.phone, d.total_after_discount " +
+                "FROM day_orders d " +
+                "JOIN max_total mt ON d.total_after_discount = mt.max_val " +
+                "LEFT JOIN customers c ON c.id = d.customer_id " +
+                "ORDER BY c.full_name NULLS LAST, d.order_id";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setObject(1, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<CustomerOrderTotalInfo> list = new java.util.ArrayList<>();
+                while (rs.next()) {
+                    list.add(new CustomerOrderTotalInfo(
+                            rs.getLong("order_id"),
+                            rs.getString("full_name"),
+                            rs.getString("phone"),
+                            rs.getBigDecimal("total_after_discount")
+                    ));
+                }
+                return list;
+            }
+        }
+    }
+
+    public int countDessertOrdersOnDate(LocalDate date) throws SQLException {
+        return countOrdersByCategoryOnDate("DESSERT", date);
+    }
+
+    public int countDrinkOrdersOnDate(LocalDate date) throws SQLException {
+        return countOrdersByCategoryOnDate("DRINK", date);
+    }
+
+    private int countOrdersByCategoryOnDate(String category, LocalDate date) throws SQLException {
+        String sql = "SELECT COUNT(DISTINCT o.id) AS cnt " +
+                "FROM orders o " +
+                "JOIN order_items oi ON oi.order_id = o.id " +
+                "JOIN menu_items mi ON mi.id = oi.menu_item_id " +
+                "WHERE mi.category = ?::menu_category AND DATE(o.created_at) = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, category);
+            ps.setObject(2, date);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("cnt");
+                }
+            }
+        }
+        return 0;
+    }
+
+    public List<MenuItemInfo> findDrinksWithTwoNames() throws SQLException {
+        String condition = "category = 'DRINK' AND " + nameEnPresent() + " AND " + nameUkPresent();
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public List<MenuItemInfo> findDrinksWithSingleName() throws SQLException {
+        String condition = "category = 'DRINK' AND (" +
+                "(" + nameEnPresent() + " AND NOT " + nameUkPresent() + ") OR (" +
+                nameUkPresent() + " AND NOT " + nameEnPresent() + "))";
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public List<MenuItemInfo> findDessertsWithTwoNames() throws SQLException {
+        String condition = "category = 'DESSERT' AND " + nameEnPresent() + " AND " + nameUkPresent();
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public List<MenuItemInfo> findDessertsWithSingleName() throws SQLException {
+        String condition = "category = 'DESSERT' AND (" +
+                "(" + nameEnPresent() + " AND NOT " + nameUkPresent() + ") OR (" +
+                nameUkPresent() + " AND NOT " + nameEnPresent() + "))";
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public List<MenuItemInfo> findItemsWithSingleName() throws SQLException {
+        String condition = "(" +
+                "(" + nameEnPresent() + " AND NOT " + nameUkPresent() + ") OR (" +
+                nameUkPresent() + " AND NOT " + nameEnPresent() + "))";
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public List<MenuItemInfo> findItemsWithTwoNames() throws SQLException {
+        String condition = nameEnPresent() + " AND " + nameUkPresent();
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public List<MenuItemInfo> findItemsWithSameName() throws SQLException {
+        String condition = nameEnPresent() + " AND " + nameUkPresent() + " AND LOWER(TRIM(name_en)) = LOWER(TRIM(name_uk))";
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public BigDecimal findMinDrinkPrice() throws SQLException {
+        return querySingleDecimal("SELECT MIN(price) AS val FROM menu_items WHERE category = 'DRINK'");
+    }
+
+    public BigDecimal findMinDessertPrice() throws SQLException {
+        return querySingleDecimal("SELECT MIN(price) AS val FROM menu_items WHERE category = 'DESSERT'");
+    }
+
+    public List<MenuItemInfo> findDrinksWithMinPrice() throws SQLException {
+        String condition = "category = 'DRINK' AND price = (SELECT MIN(price) FROM menu_items WHERE category = 'DRINK')";
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public List<MenuItemInfo> findDessertsWithMinPrice() throws SQLException {
+        String condition = "category = 'DESSERT' AND price = (SELECT MIN(price) FROM menu_items WHERE category = 'DESSERT')";
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public BigDecimal findMaxDrinkPrice() throws SQLException {
+        return querySingleDecimal("SELECT MAX(price) AS val FROM menu_items WHERE category = 'DRINK'");
+    }
+
+    public BigDecimal findMaxDessertPrice() throws SQLException {
+        return querySingleDecimal("SELECT MAX(price) AS val FROM menu_items WHERE category = 'DESSERT'");
+    }
+
+    public BigDecimal findAvgDrinkPrice() throws SQLException {
+        return querySingleDecimal("SELECT ROUND(AVG(price), 2) AS val FROM menu_items WHERE category = 'DRINK'");
+    }
+
+    public BigDecimal findAvgDessertPrice() throws SQLException {
+        return querySingleDecimal("SELECT ROUND(AVG(price), 2) AS val FROM menu_items WHERE category = 'DESSERT'");
+    }
+
+    public BigDecimal findAvgDrinkAndDessertPrice() throws SQLException {
+        return querySingleDecimal("SELECT ROUND(AVG(price), 2) AS val FROM menu_items WHERE category IN ('DRINK','DESSERT')");
+    }
+
+    public List<MenuItemInfo> findDrinksWithMaxPrice() throws SQLException {
+        String condition = "category = 'DRINK' AND price = (SELECT MAX(price) FROM menu_items WHERE category = 'DRINK')";
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public List<MenuItemInfo> findDessertsWithMaxPrice() throws SQLException {
+        String condition = "category = 'DESSERT' AND price = (SELECT MAX(price) FROM menu_items WHERE category = 'DESSERT')";
+        return queryMenuItemsWithCategory(condition);
+    }
+
+    public int countStaffByRole(String roleCode) throws SQLException {
+        String sql = "SELECT COUNT(*) AS cnt FROM staff s JOIN staff_roles sr ON sr.id = s.role_id WHERE sr.code = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, roleCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("cnt");
+                }
+            }
+        }
+        return 0;
+    }
+
+    public int countAllStaff() throws SQLException {
+        String sql = "SELECT COUNT(*) AS cnt FROM staff";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("cnt");
+            }
+        }
+        return 0;
+    }
+
+    public List<StaffHireInfo> findLatestHiredStaff() throws SQLException {
+        return findStaffByHiredDate("DESC");
+    }
+
+    public List<StaffHireInfo> findLongestWorkingStaff() throws SQLException {
+        return findStaffByHiredDate("ASC");
+    }
+
+    public List<WorkScheduleInfo> findBaristaScheduleForWeek(LocalDate weekStart, String baristaPhone) throws SQLException {
+        return findSchedule(weekStart, baristaPhone, true, false);
+    }
+
+    public List<WorkScheduleInfo> findAllBaristaScheduleForWeek(LocalDate weekStart) throws SQLException {
+        return findSchedule(weekStart, null, true, true);
+    }
+
+    public List<WorkScheduleInfo> findAllStaffScheduleForWeek(LocalDate weekStart) throws SQLException {
+        return findSchedule(weekStart, null, false, true);
+    }
+
+    private List<WorkScheduleInfo> findSchedule(LocalDate weekStart, String phone, boolean onlyBaristas, boolean allowNullPhone) throws SQLException {
+        LocalDate weekEnd = weekStart.plusDays(6);
+        StringBuilder sql = new StringBuilder(
+                "SELECT s.full_name, s.phone, sr.code AS role_code, ws.shift_date, ws.shift_start, ws.shift_end " +
+                        "FROM work_schedule ws " +
+                        "JOIN staff s ON s.id = ws.staff_id " +
+                        "JOIN staff_roles sr ON sr.id = s.role_id " +
+                        "WHERE ws.shift_date BETWEEN ? AND ?"
+        );
+        if (onlyBaristas) {
+            sql.append(" AND sr.code = 'BARISTA'");
+        }
+        if (!allowNullPhone && phone != null) {
+            sql.append(" AND s.phone = ?");
+        }
+        sql.append(" ORDER BY ws.shift_date, ws.shift_start, s.full_name");
+
+        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            ps.setObject(1, weekStart);
+            ps.setObject(2, weekEnd);
+            int idx = 3;
+            if (!allowNullPhone && phone != null) {
+                ps.setString(idx, phone);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                List<WorkScheduleInfo> list = new java.util.ArrayList<>();
+                while (rs.next()) {
+                    list.add(new WorkScheduleInfo(
+                            rs.getString("full_name"),
+                            rs.getString("phone"),
+                            rs.getString("role_code"),
+                            rs.getDate("shift_date").toLocalDate(),
+                            rs.getObject("shift_start", LocalTime.class),
+                            rs.getObject("shift_end", LocalTime.class)
+                    ));
+                }
+                return list;
+            }
+        }
+    }
+
+    public List<StaffInfo> findStaffWithoutPhone() throws SQLException {
+        String sql = "SELECT full_name, phone, address, active FROM staff WHERE phone IS NULL OR TRIM(phone) = '' ORDER BY full_name";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            List<StaffInfo> list = new java.util.ArrayList<>();
+            while (rs.next()) {
+                list.add(new StaffInfo(
+                        rs.getString("full_name"),
+                        rs.getString("phone"),
+                        rs.getString("address"),
+                        rs.getBoolean("active")
+                ));
+            }
+            return list;
+        }
+    }
+
+    public List<String> findUniqueStaffFirstNames() throws SQLException {
+        String sql = "SELECT DISTINCT INITCAP(TRIM(split_part(full_name, ' ', 1))) AS first_name " +
+                "FROM staff " +
+                "WHERE TRIM(full_name) <> '' " +
+                "ORDER BY first_name";
+        return queryDistinctString(sql, "first_name");
+    }
+
+    public List<String> findUniqueStaffLastNames() throws SQLException {
+        String sql = "SELECT DISTINCT regexp_replace(full_name, '.*\\s+', '') AS last_name " +
+                "FROM staff " +
+                "WHERE TRIM(full_name) <> '' " +
+                "ORDER BY last_name";
+        return queryDistinctString(sql, "last_name");
+    }
+
     private List<OrderInfo> readOrderInfo(ResultSet rs) throws SQLException {
         List<OrderInfo> list = new java.util.ArrayList<>();
         while (rs.next()) {
@@ -349,6 +767,92 @@ public class CoffeeShopRepository {
             ));
         }
         return list;
+    }
+
+    private List<CustomerInfo> readCustomers(ResultSet rs) throws SQLException {
+        List<CustomerInfo> list = new java.util.ArrayList<>();
+        while (rs.next()) {
+            list.add(new CustomerInfo(
+                    rs.getString("full_name"),
+                    rs.getString("phone"),
+                    rs.getDate("birth_date").toLocalDate(),
+                    rs.getString("address"),
+                    rs.getBigDecimal("discount_percent")
+            ));
+        }
+        return list;
+    }
+
+    private List<MenuItemInfo> queryMenuItemsWithCategory(String condition) throws SQLException {
+        String sql = "SELECT category, name_en, name_uk, price FROM menu_items WHERE " + condition + " ORDER BY category, name_en";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            List<MenuItemInfo> list = new java.util.ArrayList<>();
+            while (rs.next()) {
+                list.add(new MenuItemInfo(
+                        rs.getString("category"),
+                        rs.getString("name_en"),
+                        rs.getString("name_uk"),
+                        rs.getBigDecimal("price")
+                ));
+            }
+            return list;
+        }
+    }
+
+    private String nameEnPresent() {
+        return "NULLIF(TRIM(name_en), '') IS NOT NULL";
+    }
+
+    private String nameUkPresent() {
+        return "NULLIF(TRIM(name_uk), '') IS NOT NULL";
+    }
+
+    private List<String> queryDistinctString(String sql, String column) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            List<String> list = new java.util.ArrayList<>();
+            while (rs.next()) {
+                list.add(rs.getString(column));
+            }
+            return list;
+        }
+    }
+
+    private List<StaffHireInfo> findStaffByHiredDate(String order) throws SQLException {
+        String sql = "WITH target AS (" +
+                "  SELECT hired_at FROM staff ORDER BY hired_at " + order + " LIMIT 1" +
+                ") " +
+                "SELECT s.full_name, s.phone, s.address, s.active, sr.code AS role_code, s.hired_at " +
+                "FROM staff s " +
+                "JOIN staff_roles sr ON sr.id = s.role_id " +
+                "WHERE s.hired_at = (SELECT hired_at FROM target) " +
+                "ORDER BY s.full_name";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            List<StaffHireInfo> list = new java.util.ArrayList<>();
+            while (rs.next()) {
+                list.add(new StaffHireInfo(
+                        rs.getString("full_name"),
+                        rs.getString("phone"),
+                        rs.getString("address"),
+                        rs.getBoolean("active"),
+                        rs.getString("role_code"),
+                        rs.getDate("hired_at").toLocalDate()
+                ));
+            }
+            return list;
+        }
+    }
+
+    private BigDecimal querySingleDecimal(String sql) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getBigDecimal("val");
+            }
+        }
+        return null;
     }
 
 }
