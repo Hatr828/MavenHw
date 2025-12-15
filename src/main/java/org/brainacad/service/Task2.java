@@ -1,10 +1,9 @@
 package org.brainacad.service;
 
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.List;
 import org.brainacad.db.CoffeeShopRepository;
-import org.brainacad.model.CustomerInfo;
 
 public class Task2 {
     private final CoffeeShopRepository repo;
@@ -13,26 +12,54 @@ public class Task2 {
         this.repo = repo;
     }
 
-    public void printCustomerStats(LocalDate date) throws SQLException {
-        printCustomers("Youngest customers", repo.findYoungestCustomers());
-        printCustomers("Oldest customers", repo.findOldestCustomers());
-        printCustomers("Birthdays on " + date, repo.findBirthdayCustomers(date));
-        printCustomers("Customers without address", repo.findCustomersWithoutAddress());
+    public void run() throws SQLException {
+        System.out.println("Task 2: inserting sample data...");
+        insertMenuItem();
+        insertBarista();
+        insertConfectioner();
+        insertCustomer();
     }
 
-    private void printCustomers(String title, List<CustomerInfo> customers) {
-        if (customers == null || customers.isEmpty()) {
-            System.out.printf("%s: none%n", title);
+    private void insertMenuItem() throws SQLException {
+        int inserted = repo.insertMenuItem("DRINK", "Flat White", "Флет-уайт", new BigDecimal("89.00"));
+        logResult("Menu item [Flat White]", inserted);
+    }
+
+    private void insertBarista() throws SQLException {
+        if (!ensureRoleExists("BARISTA")) {
             return;
         }
-        System.out.println(title + ":");
-        for (CustomerInfo customer : customers) {
-            System.out.printf("- %s | phone: %s | birth: %s | address: %s | discount: %s%%%n",
-                    customer.fullName,
-                    customer.phone,
-                    customer.birthDate,
-                    customer.address == null ? "n/a" : customer.address,
-                    customer.discountPercent.stripTrailingZeros().toPlainString());
+        int inserted = repo.insertStaff("Іван Петренко", "+380501234567", "Kyiv, Khreshchatyk 1", "BARISTA");
+        logResult("Barista [Іван Петренко]", inserted);
+    }
+
+    private void insertConfectioner() throws SQLException {
+        if (!ensureRoleExists("CONFECTIONER")) {
+            return;
+        }
+        int inserted = repo.insertStaff("Олена Кондитер", "+380501234568", "Lviv, Svobody Ave 10", "CONFECTIONER");
+        logResult("Confectioner [Олена Кондитер]", inserted);
+    }
+
+    private void insertCustomer() throws SQLException {
+        LocalDate birthDate = LocalDate.of(1990, 1, 15);
+        int inserted = repo.insertCustomer("Сергій Клієнт", birthDate, "+380501234569", "Dnipro, Central 15", new BigDecimal("5.0"));
+        logResult("Customer [Сергій Клієнт]", inserted);
+    }
+
+    private boolean ensureRoleExists(String roleCode) throws SQLException {
+        if (repo.roleExists(roleCode)) {
+            return true;
+        }
+        System.out.printf("- Role %s not found, skipping related insert%n", roleCode);
+        return false;
+    }
+
+    private void logResult(String title, int inserted) {
+        if (inserted > 0) {
+            System.out.printf("- %s inserted%n", title);
+        } else {
+            System.out.printf("- %s skipped (already exists)%n", title);
         }
     }
 }

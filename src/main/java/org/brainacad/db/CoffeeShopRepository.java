@@ -49,6 +49,16 @@ public class CoffeeShopRepository {
         }
     }
 
+    public boolean roleExists(String roleCode) throws SQLException {
+        String sql = "SELECT 1 FROM staff_roles WHERE code = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, roleCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     public int insertCustomer(String fullName, LocalDate birthDate, String phone, String address, BigDecimal discountPercent) throws SQLException {
         String sql = "INSERT INTO customers (full_name, birth_date, phone, address, discount_percent) " +
                 "VALUES (?, ?, ?, ?, ?) ON CONFLICT (phone) DO NOTHING";

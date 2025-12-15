@@ -1,11 +1,8 @@
 package org.brainacad.service;
 
+import java.math.BigDecimal;
 import java.sql.SQLException;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
 import org.brainacad.db.CoffeeShopRepository;
-import org.brainacad.model.OrderInfo;
 
 public class Task3 {
     private final CoffeeShopRepository repo;
@@ -14,38 +11,39 @@ public class Task3 {
         this.repo = repo;
     }
 
-    public void printOrdersOnDate(LocalDate date) throws SQLException {
-        printOrders("Orders on " + date, repo.findOrdersOnDate(date));
+    public void run() throws SQLException {
+        System.out.println("Task 3: updating sample data...");
+        updateDrinkPrice();
+        updateConfectionerAddress();
+        updateBaristaPhone();
+        updateCustomerDiscount();
     }
 
-    public void printOrdersInRange(LocalDateTime from, LocalDateTime to) throws SQLException {
-        printOrders(String.format("Orders from %s to %s", from, to), repo.findOrdersInRange(from, to));
+    private void updateDrinkPrice() throws SQLException {
+        int updated = repo.updateMenuPrice("Flat White", new BigDecimal("92.00"));
+        logUpdate("Drink price [Flat White]", updated);
     }
 
-    public void printDessertOrdersCountOnDate(LocalDate date) throws SQLException {
-        int cnt = repo.countDessertOrdersOnDate(date);
-        System.out.printf("Dessert orders on %s: %d%n", date, cnt);
+    private void updateConfectionerAddress() throws SQLException {
+        int updated = repo.updateStaffAddress("+380501234568", "CONFECTIONER", "Lviv, Heroiv UPA 20");
+        logUpdate("Confectioner address [+380501234568]", updated);
     }
 
-    public void printDrinkOrdersCountOnDate(LocalDate date) throws SQLException {
-        int cnt = repo.countDrinkOrdersOnDate(date);
-        System.out.printf("Drink orders on %s: %d%n", date, cnt);
+    private void updateBaristaPhone() throws SQLException {
+        int updated = repo.updateStaffPhone("+380501234567", "BARISTA", "+380501234570");
+        logUpdate("Barista phone [+380501234567 -> +380501234570]", updated);
     }
 
-    private void printOrders(String title, List<OrderInfo> orders) {
-        if (orders == null || orders.isEmpty()) {
-            System.out.printf("%s: none%n", title);
-            return;
-        }
-        System.out.println(title + ":");
-        for (OrderInfo order : orders) {
-            System.out.printf("- id=%d status=%s created=%s customer=%s staff=%s comments=%s%n",
-                    order.id,
-                    order.status,
-                    order.createdAt,
-                    order.customerPhone == null ? "n/a" : order.customerPhone,
-                    order.staffPhone == null ? "n/a" : order.staffPhone,
-                    order.comments == null ? "" : order.comments);
+    private void updateCustomerDiscount() throws SQLException {
+        int updated = repo.updateCustomerDiscount("+380501234569", new BigDecimal("7.5"));
+        logUpdate("Customer discount [+380501234569]", updated);
+    }
+
+    private void logUpdate(String title, int updated) {
+        if (updated > 0) {
+            System.out.printf("- %s updated%n", title);
+        } else {
+            System.out.printf("- %s not changed (no match)%n", title);
         }
     }
 }
