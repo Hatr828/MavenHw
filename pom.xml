@@ -7,6 +7,7 @@
   <groupId>brainacad-org</groupId>
   <artifactId>MavenHw</artifactId>
   <version>1.0</version>
+  <packaging>war</packaging>
 
   <name>MavenHw</name>
   <!-- FIXME change it to the project's website -->
@@ -45,6 +46,12 @@
 
   <dependencies>
     <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>5.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.11</version>
@@ -77,16 +84,24 @@
       </resource>
     </resources>
 
-    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
       <plugins>
-        <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
-
+        <plugin>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-maven-plugin</artifactId>
+            <version>11.0.22</version>
+            <configuration>
+              <httpConnector>
+                <port>8080</port>
+              </httpConnector>
+              <contextPath>/</contextPath>
+            </configuration>
+          </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <configuration>
-            <source>8</source>
-            <target>8</target>
+            <source>17</source>
+            <target>17</target>
           </configuration>
         </plugin>
         <plugin>
@@ -125,6 +140,5 @@
           <version>3.0.0</version>
         </plugin>
       </plugins>
-    </pluginManagement>
   </build>
 </project>

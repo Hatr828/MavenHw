@@ -1,0 +1,5 @@
+org/brainacad/servlet/CalculatorServlet.class
+org/brainacad/servlet/QuoteServlet.class
+org/brainacad/servlet/TextStatsServlet.class
+org/brainacad/App.class
+org/brainacad/servlet/StatsServlet.class
