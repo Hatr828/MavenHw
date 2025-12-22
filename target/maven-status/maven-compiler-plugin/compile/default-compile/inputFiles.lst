@@ -1,5 +1,2 @@
 /home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/App.java
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/servlet/CalculatorServlet.java
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/servlet/QuoteServlet.java
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/servlet/StatsServlet.java
-/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/servlet/TextStatsServlet.java
+/home/hatr777/Public/Projects/MavenHw/src/main/java/org/brainacad/SurveyServlet.java
